@@ -12,20 +12,22 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/gif"
+	"image/png"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 
 	"github.com/Unknwon/com"
 
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 
 	"github.com/golang/freetype"
 	_ "github.com/lifei6671/gocaptcha"
@@ -50,12 +52,13 @@ func (m *MainImg) Do() error {
 	rect := image.Rect(0, 0, m.Width, m.Height)
 	for k, v := range m.TextSlice {
 		makeGif(v, fmt.Sprintf("%s/%02d.gif", m.Path, k), rect)
+		//makePng(v, fmt.Sprintf("%s/%02d.png", m.Path, k), rect)
 	}
 	return nil
 }
 
 func makeGif(text string, filename string, rect image.Rectangle) {
-	img := image.NewPaletted(rect, []color.Color{color.White, color.Black})
+	img := image.NewPaletted(rect, []color.Color{color.Transparent, color.Black})
 	err := drawText(img, text, image.Point{50, 80}, color.Black, 40, 80)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -71,14 +74,27 @@ func makeGif(text string, filename string, rect image.Rectangle) {
 	os.Exit(201)
 }
 
+func makePng(text string, filename string, rect image.Rectangle) {
+	img := image.NewNRGBA(rect)
+	err := drawText(img, text, image.Point{50, 80}, color.Black, 40, 80)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(500)
+	}
+
+	fh, _ := os.Create(filename)
+	defer fh.Close()
+
+	png.Encode(fh, img)
+	os.Exit(202)
+}
+
 // DrawText 绘制文字
 func drawText(img draw.Image, text string, p image.Point, co color.Color, fs float64, dpi float64) (err error) {
 
 	//读取字体数据
 	rootDir, _ := com.GetSrcPath("emojigo")
-	//fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "方正兰亭纤黑简体.ttf"))
-	//fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "4089_方正黄草_GBK副本.ttf"))
-	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "FZMWFont副本.ttf"))
+	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "AaSuiBianYiDian-2.ttf"))
 
 	if err != nil {
 		return err
@@ -95,50 +111,29 @@ func drawText(img draw.Image, text string, p image.Point, co color.Color, fs flo
 	//设置字体
 	f.SetFont(ft)
 
-	//设置尺寸
-	f.SetFontSize(fs)
-
 	f.SetClip(img.Bounds())
 
 	//设置输出的图片
 	f.SetDst(img)
 
-	//// todo
-	//fmt.Println(f.PointToFixed(fs).String())
-	//fmt.Println(f.PointToFixed(fs).Ceil())
-	//fmt.Println(measure(dpi, fs, text, ft) / utf8.RuneCountInString(text))
-
 	//设置字体颜色
 	f.SetSrc(image.NewUniform(co))
 
-	//根据是否居中设置字体的位置
-	var pt fixed.Point26_6
+	//设置尺寸
+	fs, err = autoFontSize(img, []string{text}, fs, f)
+	if err != nil {
+		return err
+	}
+	f.SetFontSize(fs)
 
-	//widthTotal := measure(dpi, fs, text, ft)
-	//p.X = (img.Bounds().Dx() - widthTotal) / 2
-	//p.Y = (img.Bounds().Dy() - (widthTotal / utf8.RuneCountInString(text))) / 2
-
-	// 居中，需要计算调整X坐标点
-	p.X = (img.Bounds().Dx() - measure(dpi, fs, text, ft)) / 2
-	pt = freetype.Pt(p.X, p.Y)
-
-	// 绘制文字
-	//_, err = f.DrawString(text, pt)
-
-	//TODO
-	//pt = freetype.Pt(p.X, f.PointToFixed(fs).Ceil()*1)
-	//f.DrawString(text, pt)
-	//pt = freetype.Pt(p.X, f.PointToFixed(fs).Ceil()*2)
-	//f.DrawString(text, pt)
-
+	//调整位置
 	fontHeight := f.PointToFixed(fs).Ceil() * 3 / 4
-	p.Y = img.Bounds().Dy() - (img.Bounds().Dy()-fontHeight*(2*5/3))/2
-	pt = freetype.Pt(p.X, p.Y)
-	f.DrawString(text, pt)
+	p.Y = img.Bounds().Dy() - (img.Bounds().Dy()-fontHeight)/2
+	p.X = (img.Bounds().Dx() - f.PointToFixed(fs).Round()*utf8.RuneCountInString(text)) / 2
+	pt := freetype.Pt(p.X, p.Y)
 
-	p.Y -= fontHeight * 5 / 3
-	pt = freetype.Pt(p.X, p.Y)
-	f.DrawString(text, pt)
+	//绘制文字
+	_, err = f.DrawString(text, pt)
 
 	return
 }
@@ -152,4 +147,37 @@ func measure(dpi, size float64, txt string, fnt *truetype.Font) int {
 	face := truetype.NewFace(fnt, opt)
 
 	return font.MeasureString(face, txt).Round()
+}
+
+// autoFontSize 自动我微调字体大小来适应整个画布
+func autoFontSize(img image.Image, textList []string, fontSize float64, ft *freetype.Context) (float64, error) {
+	maxTextLen := 0
+	for _, text := range textList {
+		l := utf8.RuneCountInString(text)
+		if l > maxTextLen {
+			maxTextLen = l
+		}
+	}
+
+	for {
+		if fontSize <= 0 {
+			return fontSize, errors.New("fontsize is negative")
+		}
+
+		w := ft.PointToFixed(fontSize).Round() * maxTextLen
+		if w > img.Bounds().Dx() {
+			fontSize--
+			continue
+		}
+
+		h := ft.PointToFixed(fontSize).Ceil() * len(textList)
+		if h > img.Bounds().Dy() {
+			fontSize--
+			continue
+		}
+
+		break
+	}
+
+	return fontSize, nil
 }
