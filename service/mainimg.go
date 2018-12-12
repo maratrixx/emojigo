@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/color/palette"
 	"image/draw"
 	"image/gif"
 	"io/ioutil"
@@ -26,10 +25,10 @@ import (
 
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
 
 	"github.com/golang/freetype"
-	_ "github.com/imttx/tilemaps-go"
-	"golang.org/x/image/math/fixed"
+	_ "github.com/lifei6671/gocaptcha"
 )
 
 const (
@@ -55,38 +54,9 @@ func (m *MainImg) Do() error {
 	return nil
 }
 
-func (m *MainImg) DoTest() error {
-	f1, err := os.Create(m.Path + "/test.gif")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer f1.Close()
-
-	p1 := image.NewPaletted(image.Rect(0, 0, 110, 110), palette.Plan9)
-	for x := 0; x < 100; x++ {
-		for y := 0; y < 100; y++ {
-			p1.Set(50, y, color.RGBA{uint8(x), uint8(y), 255, 255})
-		}
-	}
-	p2 := image.NewPaletted(image.Rect(0, 0, 210, 210), palette.Plan9)
-	for x := 0; x < 100; x++ {
-		for y := 0; y < 100; y++ {
-			p2.Set(x, 50, color.RGBA{uint8(x * x % 255), uint8(y * y % 255), 0, 255})
-		}
-	}
-	g1 := &gif.GIF{
-		Image:     []*image.Paletted{p1, p2},
-		Delay:     []int{30, 30},
-		LoopCount: 0,
-	}
-	gif.EncodeAll(f1, g1) //保存到文件中
-
-	return nil
-}
-
 func makeGif(text string, filename string, rect image.Rectangle) {
 	img := image.NewPaletted(rect, []color.Color{color.White, color.Black})
-	err := DrawText(img, text, image.Point{20, 20}, color.Black, 20, 80, true)
+	err := drawText(img, text, image.Point{50, 80}, color.Black, 40, 80)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(500)
@@ -95,18 +65,20 @@ func makeGif(text string, filename string, rect image.Rectangle) {
 	fh, _ := os.Create(filename)
 	defer fh.Close()
 
-	g := &gif.GIF{Image: []*image.Paletted{img}, Delay: []int{30}, LoopCount: -1}
+	g := &gif.GIF{Image: []*image.Paletted{img}, Delay: []int{30}, LoopCount: 0}
 	gif.EncodeAll(fh, g)
 
-	os.Exit(200)
+	os.Exit(201)
 }
 
 // DrawText 绘制文字
-func DrawText(img draw.Image, text string, p image.Point, co color.Color, fs float64, dpi float64, center bool) (err error) {
+func drawText(img draw.Image, text string, p image.Point, co color.Color, fs float64, dpi float64) (err error) {
 
 	//读取字体数据
 	rootDir, _ := com.GetSrcPath("emojigo")
-	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "方正兰亭纤黑简体.ttf"))
+	//fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "方正兰亭纤黑简体.ttf"))
+	//fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "4089_方正黄草_GBK副本.ttf"))
+	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "FZMWFont副本.ttf"))
 
 	if err != nil {
 		return err
@@ -131,6 +103,11 @@ func DrawText(img draw.Image, text string, p image.Point, co color.Color, fs flo
 	//设置输出的图片
 	f.SetDst(img)
 
+	//// todo
+	//fmt.Println(f.PointToFixed(fs).String())
+	//fmt.Println(f.PointToFixed(fs).Ceil())
+	//fmt.Println(measure(dpi, fs, text, ft) / utf8.RuneCountInString(text))
+
 	//设置字体颜色
 	f.SetSrc(image.NewUniform(co))
 
@@ -141,18 +118,28 @@ func DrawText(img draw.Image, text string, p image.Point, co color.Color, fs flo
 	//p.X = (img.Bounds().Dx() - widthTotal) / 2
 	//p.Y = (img.Bounds().Dy() - (widthTotal / utf8.RuneCountInString(text))) / 2
 
-	if center {
-		// 居中，需要计算调整X坐标点
-		p.X = (img.Bounds().Dx() - measure(dpi, fs, text, ft)) / 2
-		pt = freetype.Pt(p.X, p.Y)
-	} else {
-		// 非居中
-		pt = freetype.Pt(p.X, p.Y)
-
-	}
+	// 居中，需要计算调整X坐标点
+	p.X = (img.Bounds().Dx() - measure(dpi, fs, text, ft)) / 2
+	pt = freetype.Pt(p.X, p.Y)
 
 	// 绘制文字
-	_, err = f.DrawString(text, pt)
+	//_, err = f.DrawString(text, pt)
+
+	//TODO
+	//pt = freetype.Pt(p.X, f.PointToFixed(fs).Ceil()*1)
+	//f.DrawString(text, pt)
+	//pt = freetype.Pt(p.X, f.PointToFixed(fs).Ceil()*2)
+	//f.DrawString(text, pt)
+
+	fontHeight := f.PointToFixed(fs).Ceil() * 3 / 4
+	p.Y = img.Bounds().Dy() - (img.Bounds().Dy()-fontHeight*(2*5/3))/2
+	pt = freetype.Pt(p.X, p.Y)
+	f.DrawString(text, pt)
+
+	p.Y -= fontHeight * 5 / 3
+	pt = freetype.Pt(p.X, p.Y)
+	f.DrawString(text, pt)
+
 	return
 }
 

@@ -2,42 +2,42 @@
 
 
 [[projects]]
-  digest = "1:b67d9fb93495f20c1650448395a35d8c8a05cc1744bdd9986f5bc69d5d114f22"
+  digest = "1:3f4b3ca543b7a4b8eae73385bb1478b52015c22fe473816d9e5819e8a6833a42"
   name = "github.com/Unknwon/com"
   packages = ["."]
-  pruneopts = "UT"
+  pruneopts = ""
   revision = "41959bdd855fb7db467f78865d5f9044507df1cd"
   version = "v2"
 
 [[projects]]
   branch = "master"
-  digest = "1:7a6377256f670508711c56c25556d639e673c0fa0f519c5a758fdcbfc8af9ac8"
+  digest = "1:05f7dd1dc7530cd6b959f8b49660cd898f8dc9601b4e764ef9bdf211e6318774"
   name = "github.com/golang/freetype"
   packages = [
     ".",
     "raster",
     "truetype",
   ]
-  pruneopts = "UT"
+  pruneopts = ""
   revision = "e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4"
 
 [[projects]]
-  branch = "master"
-  digest = "1:ee500864a00ebf06bd4903bf41d548a9bbe943c3cf82609aff13c665d6ea10ff"
-  name = "github.com/imttx/tilemaps-go"
+  digest = "1:ff94aac239f735cda1a97ec1a83908857d92e4044bf9a70568490a7a8bd3929d"
+  name = "github.com/lifei6671/gocaptcha"
   packages = ["."]
-  pruneopts = "UT"
-  revision = "a1fc6fecbb03d7ac01413e38b870c06a56bc59df"
+  pruneopts = ""
+  revision = "4ee5eae8060325104defaace04ff94b79c26a887"
+  version = "v0.1"
 
 [[projects]]
   branch = "master"
-  digest = "1:6d674a768fd27ad126eb8357ebbc14cb5b000badd62d4b7cbe403abb231e099e"
+  digest = "1:5af73a1d89fa7bcb0f7f3e49c8d7d1f7b3da80430424b2a2055de414b779f31a"
   name = "golang.org/x/image"
   packages = [
     "font",
     "math/fixed",
   ]
-  pruneopts = "UT"
+  pruneopts = ""
   revision = "cd38e8056d9b27bb2f265effa37fb0ea6b8a7f0f"
 
 [solve-meta]
@@ -47,7 +47,7 @@
     "github.com/Unknwon/com",
     "github.com/golang/freetype",
     "github.com/golang/freetype/truetype",
-    "github.com/imttx/tilemaps-go",
+    "github.com/lifei6671/gocaptcha",
     "golang.org/x/image/font",
     "golang.org/x/image/math/fixed",
   ]

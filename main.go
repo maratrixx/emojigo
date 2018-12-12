@@ -2,6 +2,8 @@ package main
 
 import (
 	"emojigo/service"
+
+	"github.com/Unknwon/com"
 )
 
 func main() {
@@ -9,6 +11,7 @@ func main() {
 }
 
 func doMainImg() {
+	tmpDir, _ := com.GetSrcPath("emojigo/public")
 	m := &service.MainImg{
 		Width:  240,
 		Height: 240,
@@ -20,8 +23,14 @@ func doMainImg() {
 			"可爱的我又出现了",
 			"此时场面,略显尴尬",
 			"凭实力尬聊"},
-		Path: "/Users/yafeng5/.gvm/pkgsets/go1.11/global/src/emojigo/public",
+		Path: tmpDir,
 	}
 
 	m.Do()
 }
+
+/**
+免费商用字体链接：https://pan.baidu.com/s/1X_iciNjd0RuGjZFnGVKc6g 提取码: kysy
+
+如果链接无法打开，请及时联系我，我会马上修复哒~
+*/
