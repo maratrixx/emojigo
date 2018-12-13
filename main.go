@@ -2,6 +2,7 @@ package main
 
 import (
 	"emojigo/service"
+	"fmt"
 
 	"github.com/Unknwon/com"
 )
@@ -13,9 +14,6 @@ func main() {
 func doMainImg() {
 	tmpDir, _ := com.GetSrcPath("emojigo/public")
 	m := &service.MainImg{
-		Width:  240,
-		Height: 240,
-		Num:    16,
 		TextSlice: []string{
 			"人丑还特矫情",
 			"我能撩你吗",
@@ -28,5 +26,7 @@ func doMainImg() {
 		Title: "实力尬聊",
 	}
 
-	m.Do()
+	err := m.Do()
+
+	fmt.Println(err)
 }

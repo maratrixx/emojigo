@@ -32,60 +32,103 @@ import (
 	"golang.org/x/image/font"
 
 	"github.com/golang/freetype"
-	_ "github.com/lifei6671/gocaptcha"
 )
 
 var (
 	parsedFont *truetype.Font
+	fontSize   float64 = 50
+	fontDpi    float64 = 72
+	maxNum             = 24
+	minNum             = 16
 )
 
 type MainImg struct {
-	Width     int
-	Height    int
-	Num       int
 	TextSlice []string
 	Path      string
 	Title     string
 	FontFile  string
 }
 
+// init 初始化
 func init() {
 	rootDir, err := com.GetSrcPath("emojigo")
 	if err != nil {
 		panic(err)
 	}
+	parseFont(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
+}
 
-	fontBytes, _ := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
-	parsedFont, err = truetype.Parse(fontBytes)
+// parseFont 解析字体文件
+func parseFont(file string) error {
+	fontBytes, err := ioutil.ReadFile(file)
 	if err != nil {
-		panic(err)
-	}
-}
-
-func (m *MainImg) SetFont(fontFile string) {
-
-}
-
-func (m *MainImg) Do() error {
-	wg := &sync.WaitGroup{}
-	for k, v := range m.TextSlice {
-		wg.Add(2)
-		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), 50)
-		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), 50)
+		return err
 	}
 
-	wg.Add(2) // 生成图标&&封面图
-	go makePng(wg, m.Title, fmt.Sprintf("%s/icon.png", m.Path), image.Rect(0, 0, 50, 50), 50)
-	go makePng(wg, m.Title, fmt.Sprintf("%s/cover.png", m.Path), image.Rect(0, 0, 240, 240), 100)
+	parsedFont, err = freetype.ParseFont(fontBytes)
+	if err != nil {
+		return err
+	}
 
-	wg.Wait()
 	return nil
 }
 
-func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64) {
+// SetFont 设置字体
+func (m *MainImg) SetFont(fontFile string) error {
+	if !com.IsFile(fontFile) {
+		return fmt.Errorf("file: %s is illegal", fontFile)
+	}
+	return parseFont(fontFile)
+}
+
+// Do 执行绘图
+func (m *MainImg) Do() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
+	// 检查数量
+	if len(m.TextSlice) != minNum && len(m.TextSlice) != maxNum {
+		return errors.New("text nums is illegal")
+	}
+
+	// 设置字体
+	m.SetFont(m.FontFile)
+
+	wg := &sync.WaitGroup{}
+	for k, v := range m.TextSlice {
+		wg.Add(2)
+		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), 50, true)
+		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), 50, false)
+	}
+
+	wg.Add(3) // 生成图标&&封面图&&横幅图
+	go makePng(wg, m.Title, fmt.Sprintf("%s/icon.png", m.Path), image.Rect(0, 0, 50, 50), 50, true)
+	go makePng(wg, m.Title, fmt.Sprintf("%s/cover.png", m.Path), image.Rect(0, 0, 240, 240), 100, true)
+	go makePng(wg, m.Title, fmt.Sprintf("%s/header.png", m.Path), image.Rect(0, 0, 750, 400), 100, false)
+
+	// 等待完成
+	wg.Wait()
+
+	return nil
+}
+
+func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, transparent bool) {
 	defer wg.Done()
-	img := image.NewPaletted(rect, []color.Color{color.Transparent, color.Black})
-	err := drawText(img, text, color.Black, fs, 72, true)
+
+	// 透明度设置
+	var colors []color.Color
+	if transparent {
+		colors = append(colors, color.Transparent, color.Black)
+	} else {
+		colors = append(colors, color.White, color.Black)
+	}
+
+	img := image.NewPaletted(rect, colors)
+
+	err := drawText(img, text, color.Black, fs, fontDpi, true)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -100,11 +143,18 @@ func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectan
 	fmt.Println(text, "gif done")
 }
 
-func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64) {
+func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, transparent bool) {
 	defer wg.Done()
 	img := image.NewNRGBA(rect)
-	draw.Draw(img, img.Bounds(), image.White, image.ZP, draw.Src)
-	err := drawText(img, text, color.Black, fs, 72, true)
+
+	// 透明度设置
+	if transparent {
+		draw.Draw(img, img.Bounds(), image.Transparent, image.ZP, draw.Src)
+	} else {
+		draw.Draw(img, img.Bounds(), image.White, image.ZP, draw.Src)
+	}
+
+	err := drawText(img, text, color.Black, fs, fontDpi, true)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -119,24 +169,13 @@ func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectan
 
 // DrawText 绘制文字
 func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float64, split bool) (err error) {
-	//读取字体数据
-	rootDir, _ := com.GetSrcPath("emojigo")
-	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
-
-	if err != nil {
-		return err
-	}
-
-	//载入字体数据
-	ft, err := freetype.ParseFont(fontBytes)
-
 	f := freetype.NewContext()
 
 	//设置分辨率
 	f.SetDPI(dpi)
 
 	//设置字体
-	f.SetFont(ft)
+	f.SetFont(parsedFont)
 
 	f.SetClip(img.Bounds())
 
@@ -150,7 +189,10 @@ func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float
 	//f.SetHinting(50)
 
 	//设置尺寸
-	textSlice := strings.Split(text, "，")
+	textSlice := []string{text}
+	if split {
+		textSlice = strings.Split(text, "，")
+	}
 	fs, err = autoFontSize(img, textSlice, fs, f)
 	if err != nil {
 		return err

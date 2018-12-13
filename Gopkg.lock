@@ -22,14 +22,6 @@
   revision = "e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4"
 
 [[projects]]
-  digest = "1:ff94aac239f735cda1a97ec1a83908857d92e4044bf9a70568490a7a8bd3929d"
-  name = "github.com/lifei6671/gocaptcha"
-  packages = ["."]
-  pruneopts = ""
-  revision = "4ee5eae8060325104defaace04ff94b79c26a887"
-  version = "v0.1"
-
-[[projects]]
   branch = "master"
   digest = "1:5af73a1d89fa7bcb0f7f3e49c8d7d1f7b3da80430424b2a2055de414b779f31a"
   name = "golang.org/x/image"
@@ -47,9 +39,7 @@
     "github.com/Unknwon/com",
     "github.com/golang/freetype",
     "github.com/golang/freetype/truetype",
-    "github.com/lifei6671/gocaptcha",
     "golang.org/x/image/font",
-    "golang.org/x/image/math/fixed",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
