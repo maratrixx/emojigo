@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/Unknwon/com"
@@ -33,11 +35,8 @@ import (
 	_ "github.com/lifei6671/gocaptcha"
 )
 
-const (
-	MaxWidth  = 240
-	MadHeight = 240
-	MinNum    = 16
-	MaxNum    = 24
+var (
+	parsedFont *truetype.Font
 )
 
 type MainImg struct {
@@ -46,23 +45,50 @@ type MainImg struct {
 	Num       int
 	TextSlice []string
 	Path      string
+	Title     string
+	FontFile  string
+}
+
+func init() {
+	rootDir, err := com.GetSrcPath("emojigo")
+	if err != nil {
+		panic(err)
+	}
+
+	fontBytes, _ := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
+	parsedFont, err = truetype.Parse(fontBytes)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (m *MainImg) SetFont(fontFile string) {
+
 }
 
 func (m *MainImg) Do() error {
-	rect := image.Rect(0, 0, m.Width, m.Height)
+	wg := &sync.WaitGroup{}
 	for k, v := range m.TextSlice {
-		makeGif(v, fmt.Sprintf("%s/%02d.gif", m.Path, k), rect)
-		//makePng(v, fmt.Sprintf("%s/%02d.png", m.Path, k), rect)
+		wg.Add(2)
+		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), 50)
+		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), 50)
 	}
+
+	wg.Add(2) // 生成图标&&封面图
+	go makePng(wg, m.Title, fmt.Sprintf("%s/icon.png", m.Path), image.Rect(0, 0, 50, 50), 50)
+	go makePng(wg, m.Title, fmt.Sprintf("%s/cover.png", m.Path), image.Rect(0, 0, 240, 240), 100)
+
+	wg.Wait()
 	return nil
 }
 
-func makeGif(text string, filename string, rect image.Rectangle) {
+func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64) {
+	defer wg.Done()
 	img := image.NewPaletted(rect, []color.Color{color.Transparent, color.Black})
-	err := drawText(img, text, image.Point{50, 80}, color.Black, 40, 80)
+	err := drawText(img, text, color.Black, fs, 72, true)
 	if err != nil {
 		fmt.Println(err.Error())
-		os.Exit(500)
+		return
 	}
 
 	fh, _ := os.Create(filename)
@@ -71,30 +97,31 @@ func makeGif(text string, filename string, rect image.Rectangle) {
 	g := &gif.GIF{Image: []*image.Paletted{img}, Delay: []int{30}, LoopCount: 0}
 	gif.EncodeAll(fh, g)
 
-	os.Exit(201)
+	fmt.Println(text, "gif done")
 }
 
-func makePng(text string, filename string, rect image.Rectangle) {
+func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64) {
+	defer wg.Done()
 	img := image.NewNRGBA(rect)
-	err := drawText(img, text, image.Point{50, 80}, color.Black, 40, 80)
+	draw.Draw(img, img.Bounds(), image.White, image.ZP, draw.Src)
+	err := drawText(img, text, color.Black, fs, 72, true)
 	if err != nil {
 		fmt.Println(err.Error())
-		os.Exit(500)
+		return
 	}
 
 	fh, _ := os.Create(filename)
 	defer fh.Close()
 
 	png.Encode(fh, img)
-	os.Exit(202)
+	fmt.Println(text, "png done")
 }
 
 // DrawText 绘制文字
-func drawText(img draw.Image, text string, p image.Point, co color.Color, fs float64, dpi float64) (err error) {
-
+func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float64, split bool) (err error) {
 	//读取字体数据
 	rootDir, _ := com.GetSrcPath("emojigo")
-	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "AaSuiBianYiDian-2.ttf"))
+	fontBytes, err := ioutil.ReadFile(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
 
 	if err != nil {
 		return err
@@ -119,8 +146,12 @@ func drawText(img draw.Image, text string, p image.Point, co color.Color, fs flo
 	//设置字体颜色
 	f.SetSrc(image.NewUniform(co))
 
+	// TODO 了解一下
+	//f.SetHinting(50)
+
 	//设置尺寸
-	fs, err = autoFontSize(img, []string{text}, fs, f)
+	textSlice := strings.Split(text, "，")
+	fs, err = autoFontSize(img, textSlice, fs, f)
 	if err != nil {
 		return err
 	}
@@ -128,12 +159,15 @@ func drawText(img draw.Image, text string, p image.Point, co color.Color, fs flo
 
 	//调整位置
 	fontHeight := f.PointToFixed(fs).Ceil() * 3 / 4
-	p.Y = img.Bounds().Dy() - (img.Bounds().Dy()-fontHeight)/2
-	p.X = (img.Bounds().Dx() - f.PointToFixed(fs).Round()*utf8.RuneCountInString(text)) / 2
-	pt := freetype.Pt(p.X, p.Y)
+	pY := (img.Bounds().Dy()-fontHeight*len(textSlice))/2 + fontHeight
+	for _, v := range textSlice {
+		pX := (img.Bounds().Dx() - f.PointToFixed(fs).Round()*utf8.RuneCountInString(v)) / 2
+		pt := freetype.Pt(pX, pY)
+		//绘制文字
+		_, err = f.DrawString(v, pt)
 
-	//绘制文字
-	_, err = f.DrawString(text, pt)
+		pY += fontHeight
+	}
 
 	return
 }

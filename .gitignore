@@ -13,4 +13,5 @@
 
 .idea
 .DS_Store
-public/
+public/*.png
+public/*.gif
