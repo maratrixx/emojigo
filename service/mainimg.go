@@ -90,9 +90,9 @@ func (m *MainImg) Do() (err error) {
 	}()
 
 	// 检查数量
-	if len(m.TextSlice) != minNum && len(m.TextSlice) != maxNum {
-		return errors.New("text nums is illegal")
-	}
+	//if len(m.TextSlice) != minNum && len(m.TextSlice) != maxNum {
+	//	return errors.New("text nums is illegal")
+	//}
 
 	// 设置字体
 	m.SetFont(m.FontFile)
@@ -100,6 +100,7 @@ func (m *MainImg) Do() (err error) {
 	wg := &sync.WaitGroup{}
 	for k, v := range m.TextSlice {
 		wg.Add(2)
+		k++
 		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), 50, true)
 		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), 50, false)
 	}
@@ -208,7 +209,7 @@ func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float
 		//绘制文字
 		_, err = f.DrawString(v, pt)
 
-		pY += fontHeight
+		pY += fontHeight * 4 / 3
 	}
 
 	return
