@@ -36,17 +36,24 @@ import (
 
 var (
 	parsedFont *truetype.Font
-	fontSize   float64 = 50
+	fontSize   float64 = 100
 	fontDpi    float64 = 72
 	maxNum             = 24
 	minNum             = 16
 )
 
 type MainImg struct {
-	TextSlice []string
-	Path      string
-	Title     string
-	FontFile  string
+	Theme        string         // 表情包主题
+	Title        string         // 表情包标题
+	TextSlice    []string       // 文字列表
+	IconTitle    string         // 图标文案
+	IconColor    color.Color    // 图标底色
+	ProfileTitle string         // 详情页横幅
+	ProfileColor color.Color    // 详情页底色
+	Path         string         // 保存路径
+	FontFile     string         // 字体文件
+	FontSize     float64        // 字体大小
+	parsedFont   *truetype.Font // 解析后的字体引用
 }
 
 // init 初始化
@@ -55,30 +62,38 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	parseFont(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
+
+	parsedFont, err = parseFont(filepath.Join(rootDir, "public/fonts", "RuanMengTi-2.ttf"))
+	if err != nil {
+		panic(err)
+	}
 }
 
 // parseFont 解析字体文件
-func parseFont(file string) error {
+func parseFont(file string) (*truetype.Font, error) {
 	fontBytes, err := ioutil.ReadFile(file)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	parsedFont, err = freetype.ParseFont(fontBytes)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return freetype.ParseFont(fontBytes)
 }
 
 // SetFont 设置字体
 func (m *MainImg) SetFont(fontFile string) error {
+	m.parsedFont = parsedFont
+
 	if !com.IsFile(fontFile) {
 		return fmt.Errorf("file: %s is illegal", fontFile)
 	}
-	return parseFont(fontFile)
+
+	ft, err := parseFont(fontFile)
+	if err != nil {
+		return err
+	}
+
+	m.parsedFont = ft
+	return nil
 }
 
 // Do 执行绘图
@@ -90,25 +105,38 @@ func (m *MainImg) Do() (err error) {
 	}()
 
 	// 检查数量
-	//if len(m.TextSlice) != minNum && len(m.TextSlice) != maxNum {
-	//	return errors.New("text nums is illegal")
-	//}
+	if len(m.TextSlice) != minNum && len(m.TextSlice) != maxNum {
+		return errors.New("text nums is illegal")
+	}
 
 	// 设置字体
 	m.SetFont(m.FontFile)
+
+	// 设置字体大小
+	if m.FontSize <= 0 {
+		m.FontSize = fontSize
+	}
 
 	wg := &sync.WaitGroup{}
 	for k, v := range m.TextSlice {
 		wg.Add(2)
 		k++
-		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), 50, true)
-		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), 50, false)
+		// 主图
+		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), m.FontSize, color.Transparent, m.parsedFont)
+		// 表情缩略图
+		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), m.FontSize, color.White, m.parsedFont)
 	}
 
 	wg.Add(3) // 生成图标&&封面图&&横幅图
-	go makePng(wg, m.Title, fmt.Sprintf("%s/icon.png", m.Path), image.Rect(0, 0, 50, 50), 50, true)
-	go makePng(wg, m.Title, fmt.Sprintf("%s/cover.png", m.Path), image.Rect(0, 0, 240, 240), 100, true)
-	go makePng(wg, m.Title, fmt.Sprintf("%s/header.png", m.Path), image.Rect(0, 0, 750, 400), 100, false)
+
+	// 聊天页图标
+	go makePng(wg, m.IconTitle, fmt.Sprintf("%s/icon.png", m.Path), image.Rect(0, 0, 50, 50), m.FontSize, m.IconColor, m.parsedFont)
+
+	// 表情封面
+	go makePng(wg, m.IconTitle, fmt.Sprintf("%s/cover.png", m.Path), image.Rect(0, 0, 240, 240), m.FontSize, m.IconColor, m.parsedFont)
+
+	// 详情页横幅
+	go makePng(wg, m.ProfileTitle, fmt.Sprintf("%s/header.png", m.Path), image.Rect(0, 0, 750, 400), m.FontSize, m.ProfileColor, m.parsedFont)
 
 	// 等待完成
 	wg.Wait()
@@ -116,20 +144,12 @@ func (m *MainImg) Do() (err error) {
 	return nil
 }
 
-func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, transparent bool) {
+func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, co color.Color, ft *truetype.Font) {
 	defer wg.Done()
 
-	// 透明度设置
-	var colors []color.Color
-	if transparent {
-		colors = append(colors, color.Transparent, color.Black)
-	} else {
-		colors = append(colors, color.White, color.Black)
-	}
+	img := image.NewPaletted(rect, []color.Color{co, color.Black})
 
-	img := image.NewPaletted(rect, colors)
-
-	err := drawText(img, text, color.Black, fs, fontDpi, true)
+	err := drawText(img, text, color.Black, fs, fontDpi, true, ft)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -144,18 +164,15 @@ func makeGif(wg *sync.WaitGroup, text string, filename string, rect image.Rectan
 	fmt.Println(text, "gif done")
 }
 
-func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, transparent bool) {
+func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectangle, fs float64, co color.Color, ft *truetype.Font) {
 	defer wg.Done()
 	img := image.NewNRGBA(rect)
 
-	// 透明度设置
-	if transparent {
-		draw.Draw(img, img.Bounds(), image.Transparent, image.ZP, draw.Src)
-	} else {
-		draw.Draw(img, img.Bounds(), image.White, image.ZP, draw.Src)
-	}
+	// 背景色设置
+	draw.Draw(img, img.Bounds(), image.NewUniform(co), image.ZP, draw.Src)
 
-	err := drawText(img, text, color.Black, fs, fontDpi, true)
+	// 绘制文字
+	err := drawText(img, text, color.Black, fs, fontDpi, true, ft)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -169,14 +186,14 @@ func makePng(wg *sync.WaitGroup, text string, filename string, rect image.Rectan
 }
 
 // DrawText 绘制文字
-func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float64, split bool) (err error) {
+func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float64, split bool, ft *truetype.Font) (err error) {
 	f := freetype.NewContext()
 
 	//设置分辨率
 	f.SetDPI(dpi)
 
 	//设置字体
-	f.SetFont(parsedFont)
+	f.SetFont(ft)
 
 	f.SetClip(img.Bounds())
 
