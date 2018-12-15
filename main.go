@@ -34,7 +34,6 @@ func doMainImg() {
 			"随遇而安，得脑血栓",
 		},
 		Path:         tmpDir,
-		Title:        "毁人不倦",
 		FontSize:     200,
 		IconTitle:    "搞笑，文字",
 		IconColor:    color.Transparent,

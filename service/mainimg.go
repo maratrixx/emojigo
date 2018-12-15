@@ -36,7 +36,6 @@ var (
 
 type MainImg struct {
 	Theme        string         // 表情包主题
-	Title        string         // 表情包标题
 	TextSlice    []string       // 文字列表
 	IconTitle    string         // 图标文案
 	IconColor    color.Color    // 图标底色
