@@ -42,6 +42,8 @@ func doMainImg() {
 		Theme:        "",
 	}
 
+	m.SetSep("，")
+
 	err := m.Do()
 
 	fmt.Println(err)

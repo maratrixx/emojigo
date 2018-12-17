@@ -37,6 +37,8 @@ func TestMainImg_Do(t *testing.T) {
 		Theme:        "",
 	}
 
+	m.SetSep("，")
+
 	err := m.Do()
 
 	if err != nil {

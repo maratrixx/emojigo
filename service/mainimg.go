@@ -32,6 +32,7 @@ var (
 	fontDpi    float64 = 72
 	maxNum             = 24
 	minNum             = 16
+	sep                = "|"
 )
 
 type MainImg struct {
@@ -85,6 +86,11 @@ func (m *MainImg) SetFont(fontFile string) error {
 
 	m.parsedFont = ft
 	return nil
+}
+
+// SetSep 设置换行标识符
+func (m *MainImg) SetSep(s string) {
+	sep = s
 }
 
 // Do 执行绘图
@@ -200,7 +206,7 @@ func drawText(img draw.Image, text string, co color.Color, fs float64, dpi float
 	//设置尺寸
 	textSlice := []string{text}
 	if split {
-		textSlice = strings.Split(text, "，")
+		textSlice = strings.Split(text, sep)
 	}
 	fs, err = autoFontSize(img, textSlice, fs, f)
 	if err != nil {
