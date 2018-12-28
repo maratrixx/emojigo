@@ -121,7 +121,7 @@ func (m *MainImg) Do() (err error) {
 		// 主图
 		go makeGif(wg, v, fmt.Sprintf("%s/%02d.gif", m.Path, k), image.Rect(0, 0, 240, 240), m.FontSize, color.Transparent, m.parsedFont)
 		// 表情缩略图
-		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 240, 240), m.FontSize, color.White, m.parsedFont)
+		go makePng(wg, v, fmt.Sprintf("%s/%02d.png", m.Path, k), image.Rect(0, 0, 120, 120), m.FontSize, color.White, m.parsedFont)
 	}
 
 	wg.Add(3) // 生成图标&&封面图&&横幅图

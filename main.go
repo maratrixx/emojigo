@@ -34,12 +34,13 @@ func doMainImg() {
 			"随遇而安，得脑血栓",
 		},
 		Path:         tmpDir,
-		FontSize:     200,
-		IconTitle:    "搞笑，文字",
+		FontSize:     150,
+		IconTitle:    "网络，文字",
 		IconColor:    color.Transparent,
-		ProfileTitle: "岁月静好全靠胆小",
+		ProfileTitle: "没有梦想，过得特爽",
 		ProfileColor: color.NRGBA{239, 233, 87, 255},
 		Theme:        "",
+		FontFile:     "/Users/liyafeng/.gvm/pkgsets/go1.11/global/src/emojigo/public/fonts/TengXiangPaoPaoTiJian-2.ttf",
 	}
 
 	m.SetSep("，")
